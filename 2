@@ -1,0 +1,95 @@
+import torch
+import numpy as np
+import torch.nn as nn
+from torch.autograd import Variable
+
+# 样本
+num_train = 10
+# 属性
+num_d = 2
+# 学习率
+Lr = 3e-3
+x_train = torch.randn(num_train, num_d)
+
+y_train = torch.randn(num_train, 1)
+# y = 8*x1-1.4*x2 + 10
+for i in range(num_train):
+    y_train[i] = 8 * x_train[i][0] - 1.4 * x_train[i][1] + 10
+
+
+# 模型
+class LinearR(nn.Module):
+    def __init__(self):
+        super(LinearR, self).__init__()
+        self.linear = nn.Linear(num_d, 1)
+
+    def forward(self, x):
+        out = self.linear(x)
+        return out
+
+
+model = LinearR()
+# 均方差损失函数
+Loss_f = torch.nn.MSELoss()
+# 随机梯度下降
+optimizer = torch.optim.SGD(model.parameters(), lr=Lr)
+epoch = 0
+while True:
+    in_x = Variable(x_train)
+    target = Variable(y_train)
+    out_y = model(in_x)
+    loss = Loss_f(out_y, target)
+    # 梯度清0
+    optimizer.zero_grad()
+    #  反向传播 更新梯度
+    loss.backward()
+    optimizer.step()
+    epoch += 1
+    if loss.item() < 1e-5:
+        break
+print('epoch=', epoch, 'loss=', loss.item())
+# 预测模式
+model.eval()
+model.cpu()
+for layer, param in model.state_dict().items():
+    print(layer, param)
+
+# 编写函数
+
+x_train = torch.as_tensor(x_train, dtype=torch.float64)
+y_train = torch.as_tensor(y_train, dtype=torch.float64)
+
+w = torch.tensor(np.random.normal(0, 0.01, (num_d, 1)), dtype=torch.float64)
+b = torch.zeros(1, dtype=torch.float64)
+w = Variable(w, requires_grad=True)
+b = Variable(b, requires_grad=True)
+
+
+# 函数
+def f(X, w, b):
+    return torch.mm(X, w) + b
+
+
+# 损失函数
+def loss_f(f, y):
+    return (f - y) ** 2 / 2
+
+
+# 梯度下降
+def sgd(params, lr):
+    for param in params:
+        param.data = param - lr * param.grad
+
+epoch = 0
+while True:
+    out_y = f(x_train, w, b)
+    loss_ff = loss_f(out_y, y_train).sum()
+    loss_ff.backward()
+    sgd([w, b], Lr)
+    w.grad.data.zero_()
+    b.grad.data.zero_()
+    epoch += 1
+    if loss_ff < 1e-5:
+        break
+print('epoch=', epoch,'loss=', loss_ff.item())
+print(w.data.numpy(), b.data.numpy())
